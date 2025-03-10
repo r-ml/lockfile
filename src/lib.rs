@@ -37,6 +37,33 @@ mod unix {
             Ok(())
         }
     }
+
+    #[cfg(test)]
+    mod test {
+        use crate::*;
+
+        #[test]
+        fn it_works() {
+            let tmp_dir = std::env::temp_dir();
+            let tmp_path = tmp_dir.join("06a89370-5d5f-41a4-8963-a273a2514720.lock");
+            let tmp_file = std::fs::File::options()
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
+                .open(&tmp_path)
+                .unwrap();
+            // Subsequent `flock` calls by the same process upgrade lock to shared on linux.
+            // https://man7.org/linux/man-pages/man2/flock.2.html
+            LockFile::lock(&tmp_file).unwrap();
+            LockFile::unlock(&tmp_file).unwrap();
+            let res = LockFile::try_lock(&tmp_file).unwrap();
+            assert!(res);
+            LockFile::unlock(&tmp_file).unwrap();
+            std::mem::drop(tmp_file);
+            std::fs::remove_file(tmp_path).unwrap();
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -145,6 +172,33 @@ mod windows {
                 }
             }
             Ok(())
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use crate::*;
+
+        #[test]
+        fn it_works() {
+            let tmp_dir = std::env::temp_dir();
+            let tmp_path = tmp_dir.join("06a89370-5d5f-41a4-8963-a273a2514720.lock");
+            let tmp_file = std::fs::File::options()
+                .create(true)
+                .truncate(false)
+                .read(true)
+                .write(true)
+                .open(&tmp_path)
+                .unwrap();
+            LockFile::lock(&tmp_file).unwrap();
+            let res = LockFile::try_lock(&tmp_file).unwrap();
+            assert!(!res);
+            LockFile::unlock(&tmp_file).unwrap();
+            let res = LockFile::try_lock(&tmp_file).unwrap();
+            assert!(res);
+            LockFile::unlock(&tmp_file).unwrap();
+            std::mem::drop(tmp_file);
+            std::fs::remove_file(tmp_path).unwrap();
         }
     }
 }
